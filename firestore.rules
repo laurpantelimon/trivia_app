@@ -1,0 +1,142 @@
+rules_version = '2';
+
+// Write policy: only admins and moderators write to Firestore.
+// The single exception is player creation: a new player files themselves, once,
+// as players/{uid} with role 'player'. Players can never update or delete it.
+//
+// Roles: there is no users collection. Staff roles come from the `role` custom
+// claim on the Firebase Auth token (set with the Admin SDK) or from the caller's
+// active staff entry (admins/, moderators/, observers/{uid}), claimed from an
+// admin's invitation; a player's role is the `role` stored in their player entry.
+// Cloud Functions use the Admin SDK and are not bound by these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function callerEmail() {
+      return request.auth.token.get('email', '').lower();
+    }
+
+    // Role from the custom claim, otherwise from the caller's active staff entry
+    // ({admins|moderators|observers}/{uid}).
+    function callerRole() {
+      let uid = request.auth.uid;
+      let claimed = request.auth.token.get('role', null);
+      return claimed != null ? claimed
+        : (exists(/databases/$(database)/documents/admins/$(uid)) ? 'admin'
+        : (exists(/databases/$(database)/documents/moderators/$(uid)) ? 'moderator'
+        : (exists(/databases/$(database)/documents/observers/$(uid)) ? 'observer'
+        : null)));
+    }
+
+    // Staff invitations are keyed by an 8-character code (see
+    // src/features/staff/invitationCode.ts); active entries by the 28-character uid.
+    function isInvitationId(id) {
+      return id.size() == 8;
+    }
+
+    // An invitation an admin creates: the id is the code.
+    function isValidInvitation(id, role) {
+      let entry = request.resource.data;
+      return isInvitationId(id)
+        && entry.keys().hasOnly(['id', 'email', 'displayName', 'role', 'createdBy', 'createdAt'])
+        && entry.id == id
+        && entry.email is string
+        && entry.email == entry.email.lower()
+        && entry.role == role
+        && entry.displayName is string
+        && entry.createdBy == request.auth.uid
+        && entry.createdAt == request.time;
+    }
+
+    // The invited person turning their invitation into their active entry
+    // {collection}/{uid}: the invitation must exist and be for their login's email.
+    function isValidClaim(uid, collection, role) {
+      let entry = request.resource.data;
+      let invitation = get(/databases/$(database)/documents/$(collection)/$(entry.invitationId)).data;
+      return isOwner(uid)
+        && isInvitationId(entry.invitationId)
+        && invitation.email == callerEmail()
+        && invitation.role == role
+        && entry.keys().hasOnly(['id', 'email', 'displayName', 'role', 'createdBy', 'createdAt', 'invitationId'])
+        && entry.id == uid
+        && entry.email == callerEmail()
+        && entry.role == role
+        && entry.displayName == invitation.displayName
+        && entry.createdBy == invitation.createdBy
+        && entry.createdAt == request.time;
+    }
+
+    function isStaff() {
+      return isSignedIn() && callerRole() in ['admin', 'moderator'];
+    }
+
+    function isAdmin() {
+      return isSignedIn() && callerRole() == 'admin';
+    }
+
+    // players/{uid}: one entry per player-page account.
+    match /players/{userId} {
+      // The role set here at creation is what the app uses as the player's role.
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['id', 'displayName', 'role', 'createdAt'])
+        && request.resource.data.id == userId
+        && request.resource.data.role == 'player'
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.createdAt == request.time;
+      allow get: if isOwner(userId);
+    }
+
+    // Staff entries, one collection per role (the collection is the role).
+    // Invitations ({code}) are created by admins and can be opened by anyone who
+    // knows the code (never listed). The invited person claims theirs by creating
+    // {uid} from it and deleting it, in one batch. Only admins change entries.
+    match /admins/{id} {
+      allow get: if isInvitationId(id) || isOwner(id) || isStaff();
+      allow list: if isStaff();
+      allow create: if (isAdmin() && isValidInvitation(id, 'admin'))
+        || isValidClaim(id, 'admins', 'admin');
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (isInvitationId(id) && isSignedIn() && resource.data.email == callerEmail());
+    }
+
+    match /moderators/{id} {
+      allow get: if isInvitationId(id) || isOwner(id) || isStaff();
+      allow list: if isStaff();
+      allow create: if (isAdmin() && isValidInvitation(id, 'moderator'))
+        || isValidClaim(id, 'moderators', 'moderator');
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (isInvitationId(id) && isSignedIn() && resource.data.email == callerEmail());
+    }
+
+    match /observers/{id} {
+      allow get: if isInvitationId(id) || isOwner(id) || isStaff();
+      allow list: if isStaff();
+      allow create: if (isAdmin() && isValidInvitation(id, 'observer'))
+        || isValidClaim(id, 'observers', 'observer');
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (isInvitationId(id) && isSignedIn() && resource.data.email == callerEmail());
+    }
+
+    // Everything else (managing players, quizzes/{quizId} and their results, later
+    // questions and answer keys): admins and moderators. Staff collections are
+    // excluded so their admin-only rules above apply (a moderator can't move
+    // themselves into admins/).
+    match /{collection}/{document=**} {
+      allow read, write: if isStaff()
+        && !(collection in ['admins', 'moderators', 'observers']);
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "rules": {
+    "staffByEmail": {
+      ".read": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator')",
+      "$emailKey": {
+        ".read": "auth != null && auth.token.email.toLowerCase().replace('.', ',') === $emailKey",
+        ".write": "auth != null && (auth.token.role === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['role'])",
+        "role": {
+          ".validate": "newData.val() === 'observer' || newData.val() === 'moderator' || newData.val() === 'admin'"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "joinedQuiz": {
+      ".read": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator')",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['quizId', 'joinedAt']) && newData.parent().parent().child('activeQuiz').child('players').child($uid).exists()",
+        "quizId": {
+          ".validate": "newData.val() === root.child('activeQuiz').child('meta').child('quizId').val()"
+        },
+        "joinedAt": {
+          ".validate": "newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "activeQuiz": {
+      ".read": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator')",
+      ".write": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator') && !newData.exists()",
+      "meta": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator') && newData.exists() && (!data.exists() || (newData.child('quizId').val() === data.child('quizId').val() && newData.child('title').val() === data.child('title').val() && newData.child('questionCount').val() === data.child('questionCount').val() && newData.child('startedBy').val() === data.child('startedBy').val() && newData.child('startedAt').val() === data.child('startedAt').val()))",
+        ".validate": "newData.hasChildren(['quizId', 'title', 'questionCount', 'status', 'startedBy', 'startedAt'])",
+        "quizId": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "title": {
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60"
+        },
+        "questionCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        },
+        "status": {
+          ".validate": "newData.val() === 'open' || newData.val() === 'closed'"
+        },
+        "startedBy": {
+          ".validate": "newData.isString() && (data.exists() || newData.val() === auth.uid)"
+        },
+        "startedAt": {
+          ".validate": "newData.isNumber() && (data.exists() || newData.val() === now)"
+        },
+        "$other": {
+          ".validate": false
+        }
+      },
+      "players": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('activeQuiz').child('meta').child('status').val() === 'open' && !root.child('joinedQuiz').child($uid).exists() && newData.parent().parent().parent().child('joinedQuiz').child($uid).child('quizId').val() === root.child('activeQuiz').child('meta').child('quizId').val()",
+          ".validate": "newData.hasChildren(['id', 'displayName', 'joinedAt'])",
+          "id": {
+            ".validate": "newData.val() === $uid"
+          },
+          "displayName": {
+            ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 20"
+          },
+          "joinedAt": {
+            ".validate": "newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "leaderboard": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.token.role === 'admin' || auth.token.role === 'moderator' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'admin' || root.child('staffByEmail').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'moderator')",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.parent().parent().child('players').child($uid).exists() && newData.child('score').val() === 0 && newData.child('correctCount').val() === 0",
+          ".validate": "newData.hasChildren(['id', 'displayName', 'score', 'correctCount'])",
+          "id": {
+            ".validate": "newData.val() === $uid"
+          },
+          "displayName": {
+            ".validate": "newData.isString()"
+          },
+          "score": {
+            ".validate": "newData.isNumber()"
+          },
+          "correctCount": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "answers": {
+        "$questionId": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('activeQuiz').child('players').child($uid).exists() && root.child('activeQuiz').child('meta').child('status').val() === 'open'",
+            ".validate": "newData.hasChildren(['option', 'answeredAt'])",
+            "option": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "answeredAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
+      "$other": {
+        ".validate": false
+      }
+    }
+  }
+}

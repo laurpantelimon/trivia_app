@@ -39,3 +39,19 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Entity types
+
+Entity types live in `src/types/`, **grouped by domain** — one file per group, not one per entity. Import them from `@/types/<group>` instead of redeclaring them in features.
+
+| File | Contains |
+|---|---|
+| `account.ts` | roles, staff entries (`admins/`, `moderators/`, `observers/{email}`), player entries `players/{uid}`, the signed-in session user |
+| `quiz.ts` | quizzes `quizzes/{quizId}`, questions `questions/{qId}`, answer keys `answerKey/{qId}` (Firestore) |
+| `game.ts` | the active quiz (RTDB `activeQuiz/`): meta, players, answers, leaderboard; `joinedQuiz/{uid}` one-quiz lock |
+| `history.ts` | finished-quiz results `quizzes/{quizId}/results/{uid}` (Firestore) |
+
+Add a new entity to the group it belongs to; start a new group file only when an entity fits none of them. For each stored entity, keep:
+
+- the app-side type (`PlayerEntry`): serialisable, safe for Redux (timestamps as milliseconds, never Firebase objects);
+- the stored document shape (`PlayerEntryDocument`) and, when creation differs, the write shape (`NewPlayerEntryDocument`, e.g. with `serverTimestamp()`).

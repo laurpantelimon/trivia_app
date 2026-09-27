@@ -1,43 +1,103 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# ─── Dependencies ────────────────────────────────────────────
 node_modules/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
-# Expo
+# ─── Expo ────────────────────────────────────────────────────
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# ─── Generated native folders (Continuous Native Generation) ─
+# Recreated by `npx expo prebuild` / `npx expo run:*` from app.json.
+/ios
+/android
+
+# ─── Native build output (in case native folders are ever kept) ─
 .kotlin/
+.gradle/
+build/
+DerivedData/
+Pods/
+*.xcuserstate
+xcuserdata/
+*.hprof
+local.properties
 *.orig.*
+
+# ─── Build artifacts (EAS / local builds) ────────────────────
+*.apk
+*.aab
+*.ipa
+*.app
+*.dSYM.zip
+*.tar.gz
+
+# ─── Signing credentials — never commit ──────────────────────
 *.jks
+*.keystore
+!debug.keystore
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
+credentials.json
+google-service-account*.json
 
-# Metro
+# ─── Environment ─────────────────────────────────────────────
+.env
+.env*.local
+
+# ─── Metro ───────────────────────────────────────────────────
 .metro-health-check*
 
-# debug
+# ─── Firebase (CLI, emulators, Cloud Functions) ──────────────
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+database-debug.log*
+firestore-debug.log*
+ui-debug.log*
+pubsub-debug.log*
+.runtimeconfig.json
+emulator-data/
+functions/node_modules/
+functions/lib/
+# Firebase app config (provide to EAS Build via file environment variables)
+google-services.json
+GoogleService-Info.plist
+# Web app config: copy config/firebase/firebaseWebConfig.example.ts and fill it in
+config/firebase/firebaseWebConfig.ts
+
+# ─── Logs & debug ────────────────────────────────────────────
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
-.DS_Store
-*.pem
+# ─── Tests / coverage ────────────────────────────────────────
+coverage/
 
-# local env files
-.env*.local
-
-# typescript
+# ─── TypeScript ──────────────────────────────────────────────
 *.tsbuildinfo
 
-example
+# ─── Editors & tools ─────────────────────────────────────────
+.idea/
+*.swp
+.claude/settings.local.json
 
-# generated native folders
-/ios
-/android
+# ─── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+example
